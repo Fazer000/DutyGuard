@@ -60,6 +60,20 @@ jobs:
             base64 -d keystore/release.jks.base64 > keystore/release.jks
           fi
 
+          # If release.jks still doesn't exist, create a release keystore
+          if [ ! -f keystore/release.jks ]; then
+            echo "Generating release keystore..."
+            keytool -genkeypair -v \
+              -keystore keystore/release.jks \
+              -alias dutyguard \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass dutyguard123 \
+              -keypass dutyguard123 \
+              -dname "CN=DutyGuard, OU=Mobile, O=DutyGuard, L=City, S=State, C=US"
+          fi
+
           # If gradlew is not present, generate it
           if [ ! -f gradlew ]; then
             gradle wrapper

@@ -34,17 +34,19 @@ android {
       val rawKeyPath = System.getenv("KEYSTORE_PATH") ?: keystoreProps.getProperty("KEYSTORE_PATH") ?: "keystore/release.jks"
       val store = if (file(rawKeyPath).isAbsolute) file(rawKeyPath) else rootProject.file(rawKeyPath)
 
-      if (store.exists()) {
-        storeFile = store
-        storePassword = System.getenv("STORE_PASSWORD") ?: keystoreProps.getProperty("STORE_PASSWORD", "dutyguard123")
-        keyAlias = System.getenv("KEY_ALIAS") ?: keystoreProps.getProperty("KEY_ALIAS", "dutyguard")
-        keyPassword = System.getenv("KEY_PASSWORD") ?: keystoreProps.getProperty("KEY_PASSWORD", "dutyguard123")
+      storeFile = if (store.exists()) {
+        store
+      } else if (rootProject.file("keystore/release.jks").exists()) {
+        rootProject.file("keystore/release.jks")
       } else if (rootProject.file("debug.keystore").exists()) {
-        storeFile = rootProject.file("debug.keystore")
-        storePassword = "android"
-        keyAlias = "androiddebugkey"
-        keyPassword = "android"
+        rootProject.file("debug.keystore")
+      } else {
+        store
       }
+
+      storePassword = System.getenv("STORE_PASSWORD") ?: keystoreProps.getProperty("STORE_PASSWORD", "dutyguard123")
+      keyAlias = System.getenv("KEY_ALIAS") ?: keystoreProps.getProperty("KEY_ALIAS", "dutyguard")
+      keyPassword = System.getenv("KEY_PASSWORD") ?: keystoreProps.getProperty("KEY_PASSWORD", "dutyguard123")
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
