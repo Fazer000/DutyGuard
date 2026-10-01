@@ -25,22 +25,22 @@ android {
 
   signingConfigs {
     create("release") {
-      val keystorePropsFile = file("${rootDir}/keystore/keystore.properties")
+      val keystorePropsFile = rootProject.file("keystore/keystore.properties")
       val keystoreProps = Properties()
       if (keystorePropsFile.exists()) {
         keystoreProps.load(keystorePropsFile.inputStream())
       }
 
-      val keyPath = System.getenv("KEYSTORE_PATH") ?: keystoreProps.getProperty("KEYSTORE_PATH") ?: "${rootDir}/keystore/release.jks"
-      val store = file(keyPath)
+      val rawKeyPath = System.getenv("KEYSTORE_PATH") ?: keystoreProps.getProperty("KEYSTORE_PATH") ?: "keystore/release.jks"
+      val store = if (file(rawKeyPath).isAbsolute) file(rawKeyPath) else rootProject.file(rawKeyPath)
 
       if (store.exists()) {
         storeFile = store
         storePassword = System.getenv("STORE_PASSWORD") ?: keystoreProps.getProperty("STORE_PASSWORD", "dutyguard123")
         keyAlias = System.getenv("KEY_ALIAS") ?: keystoreProps.getProperty("KEY_ALIAS", "dutyguard")
         keyPassword = System.getenv("KEY_PASSWORD") ?: keystoreProps.getProperty("KEY_PASSWORD", "dutyguard123")
-      } else if (file("${rootDir}/debug.keystore").exists()) {
-        storeFile = file("${rootDir}/debug.keystore")
+      } else if (rootProject.file("debug.keystore").exists()) {
+        storeFile = rootProject.file("debug.keystore")
         storePassword = "android"
         keyAlias = "androiddebugkey"
         keyPassword = "android"
