@@ -1,0 +1,6 @@
+{
+  "name": "DutyGuard",
+  "description": "Приложение для ведения армейских нарядов: таймер суточного наряда, планировщик периодических задач, кольцевой график смен и заметки на наряд.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

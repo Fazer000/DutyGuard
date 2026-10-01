@@ -1,0 +1,123 @@
+name: Build & Release
+
+# Sets the Action run name to the commit message
+run-name: ${{ github.event.head_commit.message || github.ref_name }}
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-release:
+    name: Build & Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Prepare Keystore and Environment
+        run: |
+          mkdir -p keystore
+          # Ensure keystore.properties exists
+          if [ ! -f keystore/keystore.properties ]; then
+            echo "STORE_PASSWORD=dutyguard123" > keystore/keystore.properties
+            echo "KEY_PASSWORD=dutyguard123" >> keystore/keystore.properties
+            echo "KEY_ALIAS=dutyguard" >> keystore/keystore.properties
+            echo "KEYSTORE_PATH=keystore/release.jks" >> keystore/keystore.properties
+          fi
+
+          # If release.jks is not found but base64 exists, decode it
+          if [ ! -f keystore/release.jks ] && [ -f keystore/release.jks.base64 ]; then
+            base64 -d keystore/release.jks.base64 > keystore/release.jks
+          fi
+
+          # If gradlew is not present, generate it
+          if [ ! -f gradlew ]; then
+            gradle wrapper
+          fi
+          chmod +x gradlew
+
+      - name: Build Release APK and App Bundle
+        env:
+          STORE_PASSWORD: dutyguard123
+          KEY_PASSWORD: dutyguard123
+          KEY_ALIAS: dutyguard
+          KEYSTORE_PATH: keystore/release.jks
+        run: |
+          ./gradlew assembleRelease bundleRelease --no-daemon --stacktrace
+
+      - name: Prepare Release Artifacts
+        run: |
+          mkdir -p release-artifacts
+          
+          # Find and copy generated release APK
+          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          if [ -n "$APK_PATH" ]; then
+            cp "$APK_PATH" release-artifacts/DutyGuard-v1.0.${{ github.run_number }}.apk
+            cp "$APK_PATH" release-artifacts/DutyGuard-latest.apk
+          fi
+
+          # Find and copy generated release AAB bundle
+          AAB_PATH=$(find app/build/outputs/bundle/release -name "*.aab" | head -n 1)
+          if [ -n "$AAB_PATH" ]; then
+            cp "$AAB_PATH" release-artifacts/DutyGuard-v1.0.${{ github.run_number }}.aab
+          fi
+
+          echo "Release artifacts prepared:"
+          ls -la release-artifacts/
+
+      - name: Upload Artifacts to Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: DutyGuard-Release-${{ github.run_number }}
+          path: release-artifacts/*
+          retention-days: 30
+
+      - name: Publish to GitHub Releases
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: ${{ github.event.head_commit.message || format('DutyGuard Release v1.0.{0}', github.run_number) }}
+          body: |
+            ### DutyGuard Release Build
+            - **Commit:** `${{ github.sha }}`
+            - **Message:** ${{ github.event.head_commit.message }}
+            - **Build Number:** `${{ github.run_number }}`
+            - **Branch:** `${{ github.ref_name }}`
+            
+            #### 📦 Скачать:
+            - **APK (Установка на Android):** `DutyGuard-v1.0.${{ github.run_number }}.apk`
+            - **AAB (Google Play Bundle):** `DutyGuard-v1.0.${{ github.run_number }}.aab`
+          files: release-artifacts/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
